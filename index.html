@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UrbanMitra AI</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; padding: 0 12px; background: #f4f6f8; }
+    h1 { color: #1b5e20; }
+    .card { background: white; padding: 14px; border-radius: 8px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+    input, select, textarea { width: 100%; padding: 8px; margin: 4px 0 12px; box-sizing: border-box; }
+    button { padding: 8px 14px; background: #1b5e20; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 6px; }
+    pre { white-space: pre-wrap; background: #eef3ee; padding: 10px; border-radius: 6px; }
+    .tag { background: #ffe0b2; padding: 2px 8px; border-radius: 10px; font-size: 13px; }
+    .time { color: gray; font-size: 12px; }
+    .comment { background: #f1f1f1; padding: 6px 8px; border-radius: 5px; margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <h1>UrbanMitra AI</h1>
+  <p>Report city problems and write your complaint easily.</p>
+
+  <div class="card">
+    <label>Issue type:</label>
+    <select id="issue">
+      <option value="pothole">Pothole</option>
+      <option value="streetlight">Streetlight not working</option>
+      <option value="signal">Traffic signal not working</option>
+      <option value="drain">Blocked drain</option>
+      <option value="garbage">Garbage not collected</option>
+      <option value="water">Water leakage / no water supply</option>
+      <option value="other">Other</option>
+    </select>
+
+    <label>Language of complaint:</label>
+    <select id="language">
+      <option value="en">English</option>
+      <option value="hi">हिंदी</option>
+      <option value="mr">मराठी</option>
+    </select>
+
+    <label>Location:</label>
+    <input type="text" id="location" placeholder="Area, street, landmark">
+
+    <label>Describe the problem:</label>
+    <textarea id="description" rows="4"></textarea>
+
+    <button onclick="generateComplaint()">Generate Complaint</button>
+    <button onclick="postReport()">Post to Feed</button>
+
+    <pre id="output" style="display:none;"></pre>
+    <button id="copyBtn" style="display:none;" onclick="copyComplaint()">Copy Complaint</button>
+  </div>
+
+  <h2>Reports Feed</h2>
+  <div id="feed"></div>
+
+  <script>
+    // Issue names in 3 languages
+    var issueNames = {
+      pothole:     { en: "Pothole", hi: "गड्ढा", mr: "खड्डा" },
+      streetlight: { en: "Streetlight not working", hi: "स्ट्रीट लाइट बंद है", mr: "पथदिवा बंद आहे" },
+      signal:      { en: "Traffic signal not working", hi: "ट्रैफिक सिग्नल बंद है", mr: "ट्रॅफिक सिग्नल बंद आहे" },
+      drain:       { en: "Blocked drain", hi: "जाम नाली", mr: "तुंबलेली गटार" },
+      garbage:     { en: "Garbage not collected", hi: "कचरा नहीं उठाया गया", mr: "कचरा उचलला नाही" },
+      water:       { en: "Water leakage / no water supply", hi: "पानी का रिसाव / पानी की आपूर्ति नहीं", mr: "पाण्याची गळती / पाणीपुरवठा नाही" },
+      other:       { en: "Other civic issue", hi: "अन्य नागरिक समस्या", mr: "इतर नागरी समस्या" }
+    };
+
+    var currentComplaint = "";
+
+    function buildComplaint(issueKey, lang, location, description) {
+      var issue = issueNames[issueKey][lang];
+      if (lang === "mr") {
+        return "विषय: " + issue + " – " + location + "\n\nआदरणीय साहेब/मॅडम,\n" +
+          location + " येथे खालील समस्या आहे: " + issue + ".\n" + description +
+          "\nकृपया लवकरात लवकर कारवाई करावी.\nधन्यवाद.";
+      }
+      if (lang === "hi") {
+        return "विषय: " + issue + " – " + location + "\n\nआदरणीय महोदय/महोदया,\n" +
+          location + " पर निम्न समस्या है: " + issue + "।\n" + description +
+          "\nकृपया जल्द से जल्द कार्रवाई करें।\nधन्यवाद।";
+      }
+      return "Subject: " + issue + " at " + location + "\n\nRespected Sir/Madam,\n" +
+        "There is a problem at " + location + ": " + issue + ".\n" + description +
+        "\nPlease take action as soon as possible.\nThank you.";
+    }
+
+    function generateComplaint() {
+      var issueKey = document.getElementById("issue").value;
+      var lang = document.getElementById("language").value;
+      var location = document.getElementById("location").value.trim();
+      var description = document.getElementById("description").value.trim();
+
+      if (location === "") {
+        alert("Please enter the location.");
+        return;
+      }
+      currentComplaint = buildComplaint(issueKey, lang, location, description);
+      var out = document.getElementById("output");
+      out.textContent = currentComplaint;
+      out.style.display = "block";
+      document.getElementById("copyBtn").style.display = "inline-block";
+    }
+
+    function copyComplaint() {
+      navigator.clipboard.writeText(currentComplaint);
+      alert("Complaint copied!");
+    }
+
+    // ----- Feed (saved in this browser only) -----
+    function getReports() {
+      try {
+        return JSON.parse(localStorage.getItem("urbanmitraReports")) || [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveReports(reports) {
+      try {
+        localStorage.setItem("urbanmitraReports", JSON.stringify(reports));
+      } catch (e) {
+        alert("Could not save in this browser.");
+      }
+    }
+
+    function postReport() {
+      var issueKey = document.getElementById("issue").value;
+      var location = document.getElementById("location").value.trim();
+      var description = document.getElementById("description").value.trim();
+
+      if (location === "") {
+        alert("Please enter the location.");
+        return;
+      }
+      var reports = getReports();
+      reports.unshift({
+        issue: issueKey,
+        location: location,
+        description: description,
+        time: new Date().toLocaleString(),
+        comments: []
+      });
+      saveReports(reports);
+      showFeed();
+    }
+
+    function addComment(index) {
+      var box = document.getElementById("comment-" + index);
+      var text = box.value.trim();
+      if (text === "") return;
+      var reports = getReports();
+      reports[index].comments.push(text);
+      saveReports(reports);
+      showFeed();
+    }
+
+    function showFeed() {
+      var feed = document.getElementById("feed");
+      feed.textContent = "";
+      var reports = getReports();
+
+      if (reports.length === 0) {
+        feed.textContent = "No reports yet. Be the first to post.";
+        return;
+      }
+
+      reports.forEach(function (r, index) {
+        var card = document.createElement("div");
+        card.className = "card";
+
+        var tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = issueNames[r.issue].en;
+        card.appendChild(tag);
+
+        var loc = document.createElement("h3");
+        loc.textContent = r.location;
+        card.appendChild(loc);
+
+        var desc = document.createElement("p");
+        desc.textContent = r.description;
+        card.appendChild(desc);
+
+        var time = document.createElement("div");
+        time.className = "time";
+        time.textContent = r.time;
+        card.appendChild(time);
+
+        r.comments.forEach(function (c) {
+          var cm = document.createElement("div");
+          cm.className = "comment";
+          cm.textContent = c;
+          card.appendChild(cm);
+        });
+
+        var input = document.createElement("input");
+        input.type = "text";
+        input.id = "comment-" + index;
+        input.placeholder = "Write a comment...";
+        card.appendChild(input);
+
+        var btn = document.createElement("button");
+        btn.textContent = "Comment";
+        btn.onclick = function () { addComment(index); };
+        card.appendChild(btn);
+
+        feed.appendChild(card);
+      });
+    }
+
+    showFeed();
+  </script>
+</body>
+</html>
